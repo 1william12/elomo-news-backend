@@ -9,7 +9,7 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 
 // --- CURATED LIST OF HIGH-QUALITY FEEDS ---
-// --- UPDATED v3.3: Replaced broken Reuters/VOA with AP/CNN ---
+// --- UPDATED v3.4: Replaced broken AP with 4 new stable feeds ---
 const FEEDS = [
     // --- Cameroon / Africa Specific (High Relevance) ---
     'https://fr.allafrica.com/tools/headlines/rdf/cameroon/headlines.rdf', // AllAfrica (French)
@@ -17,15 +17,18 @@ const FEEDS = [
     'https://www.africanews.com/feed/rss',                                // Africanews
     'https://www.lemonde.fr/afrique/rss_full.xml',                        // Le Monde (Afrique)
     'https://www.france24.com/fr/afrique/rss',                            // France 24 (Afrique)
+    'https://www.rfi.fr/fr/afrique/rss',                                  // <-- NEW: RFI Afrique
+    'https://www.jeuneafrique.com/feed/',                                  // Jeune Afrique
     
     // --- International Feeds (Broad Search) ---
-    'https://apnews.com/hub/world-news/rss.xml',                         // <-- NEW: Associated Press (World)
-    'http://rss.cnn.com/rss/cnn_world.rss',                              // <-- NEW: CNN (World)
+    'http://rss.cnn.com/rss/cnn_world.rss',                              // CNN (World)
     'http://feeds.bbci.co.uk/news/world/africa/rss.xml',                 // BBC News (Africa)
     'https://www.aljazeera.com/xml/rss/all.xml',                         // Al Jazeera (All)
     'https://rss.nytimes.com/services/xml/rss/nyt/World.xml',            // New York Times (World)
     'https://www.theguardian.com/world/rss',                             // The Guardian (World)
-    'https://www.jeuneafrique.com/feed/'                                  // Jeune Afrique
+    'https://feeds.npr.org/1004/rss.xml',                                // <-- NEW: NPR (World)
+    'https://www.lemonde.fr/rss/une.xml',                                // <-- NEW: Le Monde (International)
+    'https://www.france24.com/en/rss'                                     // <-- NEW: France 24 (English)
 ];
 
 // --- KEYWORD LISTS FOR CATEGORIZATION ---
@@ -62,7 +65,7 @@ function getCategory(title, snippet) {
 
 // --- Find Image or Video Media ---
 function findMedia(item) {
-    // 1. Check for <media:content> (CNN, etc.)
+    // 1. Check for <media:content>
     if (item['media:content'] && item['media:content'].$) {
         const media = item['media:content'].$;
         if (media.medium === 'video' || (media.url && media.url.endsWith('.mp4'))) {
@@ -72,7 +75,7 @@ function findMedia(item) {
             return { type: 'image', url: media.url };
         }
     }
-    // 2. Check for <enclosure> (AP, etc.)
+    // 2. Check for <enclosure>
     if (item.enclosure && item.enclosure.url) {
         const url = item.enclosure.url;
         const type = item.enclosure.type;
@@ -100,8 +103,13 @@ async function fetchNews() {
     console.log(`Fetching news from ${FEEDS.length} sources...`);
     let allNews = [];
 
+    // Increase timeout for each request to 10 seconds (10000ms)
+    const options = {
+        timeout: 10000 
+    };
+
     const feedPromises = FEEDS.map(feedUrl => 
-        parser.parseURL(feedUrl)
+        parser.parseURL(feedUrl, options)
             .then(feed => feed.items)
             .catch(err => {
                 console.warn(`WARN: Failed to fetch feed: ${feedUrl}. Reason: ${err.message}`);
@@ -164,7 +172,7 @@ app.get('/news', (req, res) => {
 });
 
 app.get('/', (req, res) => {
-    res.send('Elomo-scott news cameroun Backend is running! (v3.3 - AP/CNN feeds)');
+    res.send('Elomo-scott news cameroun Backend is running! (v3.4 - 15 feeds)');
 });
 
 // --- Start the Server ---
