@@ -1,0 +1,17 @@
+{
+  "name": "elomo-scott-news-backend",
+  "version": "1.0.0",
+  "description": "Backend for Elomo-scott news cameroun",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "rss-parser": "^3.13.0"
+  },
+  "engines": {
+    "node": "18.x"
+  }
+}
