@@ -9,7 +9,7 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 
 // --- CURATED LIST OF HIGH-QUALITY FEEDS ---
-// --- UPDATED: Fixed Reuters and VOA links ---
+// --- UPDATED v3.2: Fixed Reuters and VOA links AGAIN ---
 const FEEDS = [
     // --- Cameroon / Africa Specific (High Relevance) ---
     'https://fr.allafrica.com/tools/headlines/rdf/cameroon/headlines.rdf', // AllAfrica (French)
@@ -19,12 +19,12 @@ const FEEDS = [
     'https://www.france24.com/fr/afrique/rss',                            // France 24 (Afrique)
     
     // --- International Feeds (Broad Search) ---
-    'https://feeds.reuters.com/Reuters/worldNews',                       // <-- FIXED REUTERS LINK
+    'https://www.reuters.com/pf/fe/gn/rss/GCA-worldNews',                // <-- NEW REUTERS LINK
     'http://feeds.bbci.co.uk/news/world/africa/rss.xml',                 // BBC News (Africa)
     'https://www.aljazeera.com/xml/rss/all.xml',                         // Al Jazeera (All)
     'https://rss.nytimes.com/services/xml/rss/nyt/World.xml',            // New York Times (World)
     'https://www.theguardian.com/world/rss',                             // The Guardian (World)
-    'https://www.voanews.com/api/z-botl-vomx-',                          // <-- FIXED VOA AFRIQUE LINK (VOA English - Africa)
+    'https://www.voaafrica.com/api/z-gq-e-v-qpo',                        // <-- NEW VOA AFRIQUE LINK
     'https://www.jeuneafrique.com/feed/'                                  // Jeune Afrique
 ];
 
@@ -44,7 +44,7 @@ const ECONOMY_KEYWORDS = [
 
 let cachedNews = [];
 
-// --- NEW FUNCTION: Categorize Article ---
+// --- Categorize Article ---
 function getCategory(title, snippet) {
     const text = (title + ' ' + snippet).toLowerCase();
     
@@ -60,7 +60,7 @@ function getCategory(title, snippet) {
     return 'other'; // Default category
 }
 
-// --- NEW FUNCTION: Find Image or Video Media ---
+// --- Find Image or Video Media ---
 function findMedia(item) {
     // 1. Check for <media:content>
     if (item['media:content'] && item['media:content'].$) {
@@ -95,6 +95,7 @@ function findMedia(item) {
     return { type: null, url: null };
 }
 
+// --- Main News Fetching Function ---
 async function fetchNews() {
     console.log(`Fetching news from ${FEEDS.length} sources...`);
     let allNews = [];
@@ -113,7 +114,7 @@ async function fetchNews() {
         allNews = allFeedItems.flat();
 
         const processedNews = allNews
-            // 1. Filter for Cameroon-related articles (BROADER)
+            // 1. Filter for Cameroon-related articles
             .filter(item => {
                 const title = item.title?.toLowerCase() || '';
                 const content = (item.contentSnippet || item.content || '').toLowerCase();
@@ -122,7 +123,7 @@ async function fetchNews() {
                        title.includes('cameroon') ||
                        content.includes('cameroun') ||
                        content.includes('cameroon') ||
-                       title.includes('fecafoot') || // Add some specific keywords
+                       title.includes('fecafoot') || 
                        title.includes('lions indomptables');
             })
             // 2. Map to a clean, categorized format
@@ -130,7 +131,6 @@ async function fetchNews() {
                 const title = item.title || 'Titre non disponible';
                 const snippet = (item.contentSnippet || (item.content || '...')).substring(0, 150).replace(/<[^>]+>/g, '');
                 
-                // --- NEW CATEGORY & MEDIA LOGIC ---
                 const category = getCategory(title, snippet);
                 const media = findMedia(item);
                 
@@ -147,7 +147,7 @@ async function fetchNews() {
             // 3. Sort: Newest first
             .sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
 
-        // 4. Remove duplicates (essential with so many feeds)
+        // 4. Remove duplicates
         const uniqueNews = [...new Map(processedNews.map(item => [item['link'], item])).values()];
         
         cachedNews = uniqueNews;
@@ -158,16 +158,16 @@ async function fetchNews() {
     }
 }
 
-// --- API Endpoints (No change here) ---
+// --- API Endpoints ---
 app.get('/news', (req, res) => {
     res.json(cachedNews);
 });
 
 app.get('/', (req, res) => {
-    res.send('Elomo-scott news cameroun Backend is running! (v3.1 - Fixed URLs)');
+    res.send('Elomo-scott news cameroun Backend is running! (v3.2 - All URLs fixed)');
 });
 
-// --- Start the Server (No change here) ---
+// --- Start the Server ---
 app.listen(PORT, () => {
     console.log(`Server listening on port ${PORT}`);
     fetchNews();
