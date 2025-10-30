@@ -1,116 +1,127 @@
-// Import necessary libraries
 const express = require('express');
 const RssParser = require('rss-parser');
 const cors = require('cors');
 
-// Initialize the app
 const app = express();
 const parser = new RssParser();
 const PORT = process.env.PORT || 3000;
 
-// Use CORS (Cross-Origin Resource Sharing)
-// This is essential to allow your index.html to talk to this server
 app.use(cors());
 
-// List of RSS feeds to fetch
-// We use feeds that cover all of Africa, then we will filter for Cameroon.
+// --- NEW FEED LIST ---
+// We've added international feeds to find more Cameroon news
 const FEEDS = [
-    'https://fr.allafrica.com/tools/headlines/rdf/cameroon/headlines.rdf', // AllAfrica (French) - Already filtered for Cameroon!
-    'https://allafrica.com/tools/headlines/rdf/cameroon/headlines.rdf',    // AllAfrica (English) - Already filtered for Cameroon!
-    'https://www.africanews.com/feed/rss'                                 // Africanews (All Africa)
+    'https://fr.allafrica.com/tools/headlines/rdf/cameroon/headlines.rdf', // AllAfrica (French)
+    'https://allafrica.com/tools/headlines/rdf/cameroon/headlines.rdf',    // AllAfrica (English)
+    'https://www.africanews.com/feed/rss',                                // Africanews
+    'http://feeds.bbci.co.uk/news/world/africa/rss.xml',                 // BBC News - Africa
+    'https://www.aljazeera.com/xml/rss/all.xml'                           // Al Jazeera - All (will be filtered)
 ];
 
-// This is where we store the news in memory
 let cachedNews = [];
 
-// Function to fetch and process the news
+// --- NEW FUNCTION TO FIND IMAGES ---
+function findImageUrl(item) {
+    // 1. Check for <media:content> (Best case)
+    if (item['media:content'] && item['media:content'].$ && item['media:content'].$.url) {
+        return item['media:content'].$.url;
+    }
+    // 2. Check for <enclosure> (Common case)
+    if (item.enclosure && item.enclosure.url && item.enclosure.type.startsWith('image')) {
+        return item.enclosure.url;
+    }
+    // 3. Check for image inside the HTML <content> (Harder case)
+    if (item.content) {
+        const match = item.content.match(/<img.*?src="(.*?)"/);
+        if (match && match[1]) {
+            return match[1];
+        }
+    }
+    // 4. If no image is found, return null
+    return null;
+}
+
 async function fetchNews() {
-    console.log('Fetching news...');
+    console.log('Fetching news from all sources...');
     let allNews = [];
 
-    // Create a list of promises for all feeds
     const feedPromises = FEEDS.map(feedUrl => 
         parser.parseURL(feedUrl)
             .then(feed => feed.items)
             .catch(err => {
                 console.error(`Error fetching feed: ${feedUrl}`, err.message);
-                return []; // Return empty array on error
+                return [];
             })
     );
 
     try {
-        // Wait for all feeds to be fetched
         const allFeedItems = await Promise.all(feedPromises);
-        
-        // Flatten the array of arrays into one big array
         allNews = allFeedItems.flat();
 
-        // Filter, process, and sort the news
         const processedNews = allNews
-            // 1. Filter for Cameroon-related articles (if not already filtered like AllAfrica)
+            // 1. Filter for Cameroon-related articles
             .filter(item => {
                 const title = item.title?.toLowerCase() || '';
                 const content = (item.contentSnippet || item.content || '').toLowerCase();
                 
-                // Keep if "cameroon" or "cameroun" is in the title or content
                 return title.includes('cameroun') || 
                        title.includes('cameroon') ||
                        content.includes('cameroun') ||
                        content.includes('cameroon');
             })
-            // 2. Map to a clean format
+            // 2. Map to a clean format (NOW WITH IMAGES)
             .map(item => {
-                // Check for political keywords
                 const title = item.title?.toLowerCase() || '';
                 const isPolitical = title.includes('politique') || 
                                     title.includes('politics') || 
                                     title.includes('président') ||
-                                    title.includes('gouvernement');
+                                    title.includes('gouvernement') ||
+                                    title.includes('biya') || // Added a specific keyword
+                                    title.includes('assembly');
+                
+                // --- NEW IMAGE LOGIC ---
+                const imageUrl = findImageUrl(item);
                 
                 return {
                     title: item.title,
                     link: item.link,
                     pubDate: item.isoDate || item.pubDate,
-                    snippet: item.contentSnippet || (item.content || '').substring(0, 150),
-                    source: new URL(item.link).hostname, // e.g., "fr.allafrica.com"
-                    isPolitical: isPolitical
+                    snippet: item.contentSnippet || (item.content || '').substring(0, 150).replace(/<[^>]+>/g, ''), // Clean snippet
+                    source: new URL(item.link).hostname,
+                    isPolitical: isPolitical,
+                    imageUrl: imageUrl // <-- ADDED THE IMAGE URL
                 };
             })
             // 3. Sort: Political news first, then by date
             .sort((a, b) => {
-                if (a.isPolitical && !b.isPolitical) return -1; // a comes first
-                if (!a.isPolitical && b.isPolitical) return 1;  // b comes first
-                return new Date(b.pubDate) - new Date(a.pubDate); // Otherwise, newest first
+                if (a.isPolitical && !b.isPolitical) return -1;
+                if (!a.isPolitical && b.isPolitical) return 1;
+                return new Date(b.pubDate) - new Date(a.pubDate);
             });
 
-        // Remove duplicates (based on link)
+        // 4. Remove duplicates
         const uniqueNews = [...new Map(processedNews.map(item => [item['link'], item])).values()];
         
         cachedNews = uniqueNews;
-        console.log(`News fetch complete. Found ${cachedNews.length} unique articles.`);
+        console.log(`News fetch complete. Found ${cachedNews.length} unique Cameroon articles.`);
 
     } catch (error) {
         console.error('Error in fetchNews function:', error);
     }
 }
 
-// --- API Endpoints ---
-
-// The main endpoint your website will call
+// --- API Endpoints (No change here) ---
 app.get('/news', (req, res) => {
     res.json(cachedNews);
 });
 
-// A simple endpoint to check if the server is alive
 app.get('/', (req, res) => {
-    res.send('Elomo-scott news cameroun Backend is running!');
+    res.send('Elomo-scott news cameroun Backend is running! (v2 with images)');
 });
 
-// --- Start the Server ---
+// --- Start the Server (No change here) ---
 app.listen(PORT, () => {
     console.log(`Server listening on port ${PORT}`);
-    // Fetch news immediately on startup
     fetchNews();
-    // Then, fetch news every 30 minutes
-    setInterval(fetchNews, 30 * 60 * 1000);
+    setInterval(fetchNews, 30 * 60 * 1000); // 30 minutes
 });
