@@ -9,7 +9,7 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 
 // --- CURATED LIST OF HIGH-QUALITY FEEDS ---
-// --- UPDATED v3.2: Fixed Reuters and VOA links AGAIN ---
+// --- UPDATED v3.3: Replaced broken Reuters/VOA with AP/CNN ---
 const FEEDS = [
     // --- Cameroon / Africa Specific (High Relevance) ---
     'https://fr.allafrica.com/tools/headlines/rdf/cameroon/headlines.rdf', // AllAfrica (French)
@@ -19,12 +19,12 @@ const FEEDS = [
     'https://www.france24.com/fr/afrique/rss',                            // France 24 (Afrique)
     
     // --- International Feeds (Broad Search) ---
-    'https://www.reuters.com/pf/fe/gn/rss/GCA-worldNews',                // <-- NEW REUTERS LINK
+    'https://apnews.com/hub/world-news/rss.xml',                         // <-- NEW: Associated Press (World)
+    'http://rss.cnn.com/rss/cnn_world.rss',                              // <-- NEW: CNN (World)
     'http://feeds.bbci.co.uk/news/world/africa/rss.xml',                 // BBC News (Africa)
     'https://www.aljazeera.com/xml/rss/all.xml',                         // Al Jazeera (All)
     'https://rss.nytimes.com/services/xml/rss/nyt/World.xml',            // New York Times (World)
     'https://www.theguardian.com/world/rss',                             // The Guardian (World)
-    'https://www.voaafrica.com/api/z-gq-e-v-qpo',                        // <-- NEW VOA AFRIQUE LINK
     'https://www.jeuneafrique.com/feed/'                                  // Jeune Afrique
 ];
 
@@ -62,7 +62,7 @@ function getCategory(title, snippet) {
 
 // --- Find Image or Video Media ---
 function findMedia(item) {
-    // 1. Check for <media:content>
+    // 1. Check for <media:content> (CNN, etc.)
     if (item['media:content'] && item['media:content'].$) {
         const media = item['media:content'].$;
         if (media.medium === 'video' || (media.url && media.url.endsWith('.mp4'))) {
@@ -72,7 +72,7 @@ function findMedia(item) {
             return { type: 'image', url: media.url };
         }
     }
-    // 2. Check for <enclosure>
+    // 2. Check for <enclosure> (AP, etc.)
     if (item.enclosure && item.enclosure.url) {
         const url = item.enclosure.url;
         const type = item.enclosure.type;
@@ -164,7 +164,7 @@ app.get('/news', (req, res) => {
 });
 
 app.get('/', (req, res) => {
-    res.send('Elomo-scott news cameroun Backend is running! (v3.2 - All URLs fixed)');
+    res.send('Elomo-scott news cameroun Backend is running! (v3.3 - AP/CNN feeds)');
 });
 
 // --- Start the Server ---
