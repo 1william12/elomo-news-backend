@@ -3,13 +3,21 @@ const RssParser = require('rss-parser');
 const cors = require('cors');
 
 const app = express();
-const parser = new RssParser();
+
+// --- CORRECTED PARSER CREATION ---
+// We pass the options to the constructor, not to the parseURL function.
+const options = {
+    timeout: 10000 // 10 second timeout for each feed
+};
+const parser = new RssParser(options);
+// --- END OF FIX ---
+
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 
 // --- CURATED LIST OF HIGH-QUALITY FEEDS ---
-// --- UPDATED v3.4: Replaced broken AP with 4 new stable feeds ---
+// (v3.4 - 15 feeds)
 const FEEDS = [
     // --- Cameroon / Africa Specific (High Relevance) ---
     'https://fr.allafrica.com/tools/headlines/rdf/cameroon/headlines.rdf', // AllAfrica (French)
@@ -17,7 +25,7 @@ const FEEDS = [
     'https://www.africanews.com/feed/rss',                                // Africanews
     'https://www.lemonde.fr/afrique/rss_full.xml',                        // Le Monde (Afrique)
     'https://www.france24.com/fr/afrique/rss',                            // France 24 (Afrique)
-    'https://www.rfi.fr/fr/afrique/rss',                                  // <-- NEW: RFI Afrique
+    'https://www.rfi.fr/fr/afrique/rss',                                  // RFI Afrique
     'https://www.jeuneafrique.com/feed/',                                  // Jeune Afrique
     
     // --- International Feeds (Broad Search) ---
@@ -26,9 +34,9 @@ const FEEDS = [
     'https://www.aljazeera.com/xml/rss/all.xml',                         // Al Jazeera (All)
     'https://rss.nytimes.com/services/xml/rss/nyt/World.xml',            // New York Times (World)
     'https://www.theguardian.com/world/rss',                             // The Guardian (World)
-    'https://feeds.npr.org/1004/rss.xml',                                // <-- NEW: NPR (World)
-    'https://www.lemonde.fr/rss/une.xml',                                // <-- NEW: Le Monde (International)
-    'https://www.france24.com/en/rss'                                     // <-- NEW: France 24 (English)
+    'https://feeds.npr.org/1004/rss.xml',                                // NPR (World)
+    'https://www.lemonde.fr/rss/une.xml',                                // Le Monde (International)
+    'https://www.france24.com/en/rss'                                     // France 24 (English)
 ];
 
 // --- KEYWORD LISTS FOR CATEGORIZATION ---
@@ -89,95 +97,3 @@ function findMedia(item) {
     }
     // 3. Check for image inside the HTML <content>
     if (item.content) {
-        const match = item.content.match(/<img.*?src="(.*?)"/);
-        if (match && match[1]) {
-            return { type: 'image', url: match[1] };
-        }
-    }
-    // 4. If no media is found, return null
-    return { type: null, url: null };
-}
-
-// --- Main News Fetching Function ---
-async function fetchNews() {
-    console.log(`Fetching news from ${FEEDS.length} sources...`);
-    let allNews = [];
-
-    // Increase timeout for each request to 10 seconds (10000ms)
-    const options = {
-        timeout: 10000 
-    };
-
-    const feedPromises = FEEDS.map(feedUrl => 
-        parser.parseURL(feedUrl, options)
-            .then(feed => feed.items)
-            .catch(err => {
-                console.warn(`WARN: Failed to fetch feed: ${feedUrl}. Reason: ${err.message}`);
-                return [];
-            })
-    );
-
-    try {
-        const allFeedItems = await Promise.all(feedPromises);
-        allNews = allFeedItems.flat();
-
-        const processedNews = allNews
-            // 1. Filter for Cameroon-related articles
-            .filter(item => {
-                const title = item.title?.toLowerCase() || '';
-                const content = (item.contentSnippet || item.content || '').toLowerCase();
-                
-                return title.includes('cameroun') || 
-                       title.includes('cameroon') ||
-                       content.includes('cameroun') ||
-                       content.includes('cameroon') ||
-                       title.includes('fecafoot') || 
-                       title.includes('lions indomptables');
-            })
-            // 2. Map to a clean, categorized format
-            .map(item => {
-                const title = item.title || 'Titre non disponible';
-                const snippet = (item.contentSnippet || (item.content || '...')).substring(0, 150).replace(/<[^>]+>/g, '');
-                
-                const category = getCategory(title, snippet);
-                const media = findMedia(item);
-                
-                return {
-                    title: title,
-                    link: item.link,
-                    pubDate: item.isoDate || item.pubDate,
-                    snippet: snippet,
-                    source: new URL(item.link).hostname.replace('www.', ''),
-                    category: category,
-                    media: media
-                };
-            })
-            // 3. Sort: Newest first
-            .sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
-
-        // 4. Remove duplicates
-        const uniqueNews = [...new Map(processedNews.map(item => [item['link'], item])).values()];
-        
-        cachedNews = uniqueNews;
-        console.log(`News fetch complete. Found ${cachedNews.length} unique Cameroon articles.`);
-
-    } catch (error) {
-        console.error('CRITICAL ERROR in fetchNews function:', error);
-    }
-}
-
-// --- API Endpoints ---
-app.get('/news', (req, res) => {
-    res.json(cachedNews);
-});
-
-app.get('/', (req, res) => {
-    res.send('Elomo-scott news cameroun Backend is running! (v3.4 - 15 feeds)');
-});
-
-// --- Start the Server ---
-app.listen(PORT, () => {
-    console.log(`Server listening on port ${PORT}`);
-    fetchNews();
-    setInterval(fetchNews, 30 * 60 * 1000); // 30 minutes
-});
