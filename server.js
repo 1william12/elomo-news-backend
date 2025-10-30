@@ -9,7 +9,7 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 
 // --- CURATED LIST OF HIGH-QUALITY FEEDS ---
-// This is a stable and powerful list for a free server.
+// --- UPDATED: Fixed Reuters and VOA links ---
 const FEEDS = [
     // --- Cameroon / Africa Specific (High Relevance) ---
     'https://fr.allafrica.com/tools/headlines/rdf/cameroon/headlines.rdf', // AllAfrica (French)
@@ -19,12 +19,12 @@ const FEEDS = [
     'https://www.france24.com/fr/afrique/rss',                            // France 24 (Afrique)
     
     // --- International Feeds (Broad Search) ---
-    'http://feeds.reuters.com/reuters/worldNews',                        // Reuters (World)
+    'https://feeds.reuters.com/Reuters/worldNews',                       // <-- FIXED REUTERS LINK
     'http://feeds.bbci.co.uk/news/world/africa/rss.xml',                 // BBC News (Africa)
     'https://www.aljazeera.com/xml/rss/all.xml',                         // Al Jazeera (All)
     'https://rss.nytimes.com/services/xml/rss/nyt/World.xml',            // New York Times (World)
     'https://www.theguardian.com/world/rss',                             // The Guardian (World)
-    'http://www.voaafrique.com/api/z-gq-e-v-qpo',                        // VOA Afrique
+    'https://www.voanews.com/api/z-botl-vomx-',                          // <-- FIXED VOA AFRIQUE LINK (VOA English - Africa)
     'https://www.jeuneafrique.com/feed/'                                  // Jeune Afrique
 ];
 
@@ -164,7 +164,7 @@ app.get('/news', (req, res) => {
 });
 
 app.get('/', (req, res) => {
-    res.send('Elomo-scott news cameroun Backend is running! (v3 - Categorized)');
+    res.send('Elomo-scott news cameroun Backend is running! (v3.1 - Fixed URLs)');
 });
 
 // --- Start the Server (No change here) ---
